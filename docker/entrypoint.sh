@@ -25,5 +25,8 @@ fi
 su-exec www-data php artisan route:cache
 su-exec www-data php artisan view:cache
 
-php-fpm -D &
-nginx -g 'daemon off;'
+# Khởi chạy php-fpm dạng daemon
+php-fpm -D
+
+# Chạy Nginx ở foreground để giữ container luôn chạy
+exec nginx -g 'daemon off;'
