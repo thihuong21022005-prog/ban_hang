@@ -2,6 +2,9 @@
 set -Eeuo pipefail
 cd /var/www
 
+# Cấp quyền đọc file cert cho www-data
+chmod 644 /etc/secrets/ca.pem 2>/dev/null || true
+
 export PORT="${PORT:-10000}"
 envsubst '${PORT}' < /etc/nginx/templates/default.conf.template > /etc/nginx/http.d/default.conf
 mkdir -p storage/framework/{cache/data,sessions,views} storage/logs storage/app/public bootstrap/cache
