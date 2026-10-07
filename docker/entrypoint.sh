@@ -2,8 +2,13 @@
 set -Eeuo pipefail
 cd /var/www
 
-# Cấp quyền đọc file cert cho www-data
-chmod 644 /etc/secrets/ca.pem 2>/dev/null || true
+# Copy file SSL cert sang /tmp/ca.pem va cap quyen truy cap cho www-data
+if [ -f /etc/secrets/ca.pem ]; then
+    cp /etc/secrets/ca.pem /tmp/ca.pem
+    chown www-data:www-data /tmp/ca.pem
+    chmod 644 /tmp/ca.pem
+    export MYSQL_ATTR_SSL_CA=/tmp/ca.pem
+fi
 
 export PORT="${PORT:-10000}"
 envsubst '${PORT}' < /etc/nginx/templates/default.conf.template > /etc/nginx/http.d/default.conf
