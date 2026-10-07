@@ -22,7 +22,7 @@
                 <!-- Hiển thị đánh giá sao tổng quan -->
                 <div class="d-flex align-items-center mb-3">
                     <div class="text-warning me-2 fs-5">
-                        @php $avg =$product->averageRating(); @endphp
+                        @php $avg = $product->averageRating(); @endphp
                         @for($i = 1; $i <= 5; $i++)
                             <i class="bi bi-star{{ $i <= round($avg) ? '-fill' : '' }}"></i>
                         @endfor
@@ -64,7 +64,7 @@
                         </label>
 
                         <div class="d-flex flex-wrap gap-2" id="variant-btn-group">
-                            @foreach ($product->variants as$variant)
+                            @foreach ($product->variants as $variant)
                                 <button type="button"
                                         class="btn btn-outline-secondary variant-btn py-2 px-3 fw-semibold"
                                         data-id="{{ $variant->id }}"
@@ -122,8 +122,8 @@
 
         <!-- Danh sách Bình luận -->
         <div class="review-list">
-            @if($product->reviews &&$product->reviews->count() > 0)
-                @foreach($product->reviews()->latest()->get() as$review)
+            @if($product->reviews && $product->reviews->count() > 0)
+                @foreach($product->reviews()->latest()->get() as $review)
                     <div class="py-3 border-bottom last-border-0">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <div class="fw-bold text-dark d-flex align-items-center gap-2">
@@ -138,7 +138,7 @@
                         <!-- Số sao tương ứng -->
                         <div class="text-warning mb-2" style="font-size: 0.9rem;">
                             @for($s = 1; $s <= 5; $s++)
-                                <i class="bi bi-star{{ $s <=$review->rating ? '-fill' : '' }}"></i>
+                                <i class="bi bi-star{{ $s <= $review->rating ? '-fill' : '' }}"></i>
                             @endfor
                         </div>
 
