@@ -23,7 +23,7 @@ class MomoService
         $ipnUrl = config('services.momo.ipn_url') ?: route('payment.momo.ipn');
         $extraData = (string) $order->id;
         $requestId = (string) time();
-        $requestType = 'payWithCC';
+        $requestType = 'payWithATM';
 
         $rawHash = 'accessKey=' . $accessKey .
             '&amount=' . $amount .
