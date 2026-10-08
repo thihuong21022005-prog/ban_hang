@@ -23,7 +23,7 @@ class CategoryController extends Controller
 
         Category::create($request->only('name', 'type'));
 
-        return redirect()->route('categories.index')->with('success', 'Thêm danh mục thành công!');
+        return redirect()->route('admin.categories.index')->with('success', 'Thêm danh mục thành công!');
     }
 
     public function destroy(Category $category)
