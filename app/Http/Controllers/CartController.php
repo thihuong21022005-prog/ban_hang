@@ -9,10 +9,19 @@ use Illuminate\Support\Str;
 
 class CartController extends Controller
 {
-    // Hiển thị danh sách sản phẩm trong giỏ
+    // Hiển thị danh sách sản phẩm trong giỏ (ảnh lấy từ database, không lưu trong session)
     public function index()
     {
         $cart = session()->get('cart', []);
+
+        $products = Furniture::whereIn('id', collect($cart)->pluck('product_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        foreach ($cart as $key => $item) {
+            $cart[$key]['image'] = optional($products->get($item['product_id']))->image_url;
+        }
+
         return view('cart.index', compact('cart'));
     }
 
@@ -21,8 +30,7 @@ class CartController extends Controller
     {
         $product = Furniture::findOrFail($id);
         $quantityToAdd = max(1, (int) $request->input('quantity', 1));
-        
-        // 1. Nhận thông tin Size & Variant ID (Khớp với cả fetch JS và Form HTML)
+
         $variantId = $request->input('furniture_variant_id', $request->input('variant_id'));
         $selectedDimension = $request->input('selected_dimension', 'Tiêu chuẩn');
 
@@ -31,7 +39,6 @@ class CartController extends Controller
             $variant = FurnitureVariant::find($variantId);
         }
 
-        // 2. Tự động xác định Tồn kho & Giá bán chuẩn theo Size
         if ($variant) {
             $selectedDimension = $variant->size;
             $stock = $variant->quantity ?? 0;
@@ -41,19 +48,16 @@ class CartController extends Controller
             $price = $product->price;
         }
 
-        // 3. Tạo Khóa định danh (Cart Key) riêng cho từng Sản phẩm + Size
         $cartKey = $variantId ? "{$id}_v{$variantId}" : "{$id}_" . Str::slug($selectedDimension);
 
         $cart = session()->get('cart', []);
 
-        // Lấy số lượng đã có của đúng Size này trong giỏ
         $currentInCart = isset($cart[$cartKey]) ? (int) $cart[$cartKey]['quantity'] : 0;
         $totalRequested = $currentInCart + $quantityToAdd;
 
-        // 4. Kiểm tra tồn kho của Size chọn
         if ($stock <= 0) {
             $errorMsg = "Sản phẩm \"{$product->name}\" (Kích thước: {$selectedDimension}) hiện đã hết hàng!";
-            
+
             if ($request->wantsJson() || $request->ajax() || $request->isJson()) {
                 return response()->json(['error' => $errorMsg], 400);
             }
@@ -61,7 +65,7 @@ class CartController extends Controller
         }
 
         if ($totalRequested > $stock) {
-            $msg = $currentInCart > 0 
+            $msg = $currentInCart > 0
                 ? "Sản phẩm \"{$product->name}\" (Kích thước: {$selectedDimension}) chỉ còn {$stock} cái trong kho (Bạn đã có {$currentInCart} cái trong giỏ)."
                 : "Sản phẩm \"{$product->name}\" (Kích thước: {$selectedDimension}) chỉ còn {$stock} cái trong kho.";
 
@@ -71,7 +75,7 @@ class CartController extends Controller
             return redirect()->back()->with('error', $msg);
         }
 
-        // 5. Lưu thông tin vào Session Giỏ hàng
+        // Không lưu ảnh vào session (ảnh base64 rất nặng), ảnh được đọc từ database ở index()
         if (isset($cart[$cartKey])) {
             $cart[$cartKey]['quantity'] = $totalRequested;
         } else {
@@ -82,14 +86,12 @@ class CartController extends Controller
                 "dimension"  => $selectedDimension,
                 "quantity"   => $quantityToAdd,
                 "price"      => $price,
-                "image"      => $product->main_image ?? $product->image ?? null,
             ];
         }
 
         session()->put('cart', $cart);
         $successMsg = "Đã thêm \"{$product->name}\" (Size: {$selectedDimension}) vào giỏ hàng!";
 
-        // Trả về kết quả phù hợp với phương thức request
         if ($request->wantsJson() || $request->ajax() || $request->isJson()) {
             return response()->json([
                 'success' => $successMsg,
@@ -116,8 +118,7 @@ class CartController extends Controller
 
         $newQuantity = max(1, (int) $request->quantity);
         $item = $cart[$cartKey];
-        
-        // Kiểm tra tồn kho thực tế của Size đó
+
         $stock = 99;
         if (!empty($item['variant_id'])) {
             $variant = FurnitureVariant::find($item['variant_id']);
@@ -150,12 +151,12 @@ class CartController extends Controller
     {
         $cartKey = $id;
         $cart = session()->get('cart', []);
-        
+
         if (isset($cart[$cartKey])) {
             unset($cart[$cartKey]);
             session()->put('cart', $cart);
         }
-        
+
         if ($request->wantsJson() || $request->ajax() || $request->isJson()) {
             return response()->json(['success' => 'Đã xóa sản phẩm khỏi giỏ hàng!']);
         }

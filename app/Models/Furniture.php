@@ -8,14 +8,13 @@ class Furniture extends Model
 {
     protected $table = 'furnitures';
 
-    // Đã thêm 'quantity' và 'price' vào đây
     protected $fillable = [
-        'category_id', 
-        'name', 
+        'category_id',
+        'name',
         'price',
-        'quantity', 
-        'main_image', 
-        'is_featured', 
+        'quantity',
+        'main_image',
+        'is_featured',
         'description'
     ];
 
@@ -28,20 +27,32 @@ class Furniture extends Model
     {
         return $this->hasMany(FurnitureColor::class, 'furniture_id');
     }
-    // Thêm vào trong class Furniture
-public function variants()
-{
-    return $this->hasMany(FurnitureVariant::class, 'furniture_id');
-}
-// Thêm vào trong class Furniture
-public function reviews()
-{
-    return $this->hasMany(Review::class);
-}
 
-// Hàm hỗ trợ lấy điểm đánh giá trung bình
-public function averageRating()
-{
-    return round($this->reviews()->avg('rating') ?? 0, 1);
-}
+    public function variants()
+    {
+        return $this->hasMany(FurnitureVariant::class, 'furniture_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function averageRating()
+    {
+        return round($this->reviews()->avg('rating') ?? 0, 1);
+    }
+
+    // Trả về URL/base64 ảnh để dùng trực tiếp trong <img src="...">
+    public function getImageUrlAttribute()
+    {
+        $path = $this->main_image;
+        if (!$path) {
+            return null;
+        }
+
+        return (str_starts_with($path, 'http') || str_starts_with($path, 'data:'))
+            ? $path
+            : asset('storage/' . $path);
+    }
 }

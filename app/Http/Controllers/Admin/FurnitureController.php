@@ -14,7 +14,6 @@ class FurnitureController extends Controller
 {
     public function index()
     {
-        // Eager load mối quan hệ variants để hiển thị tổng số biến thể nếu cần
         $furnitures = Furniture::with(['category', 'variants'])->latest()->paginate(10);
         return view('admin.furnitures.index', compact('furnitures'));
     }
@@ -31,11 +30,10 @@ class FurnitureController extends Controller
             'name'                 => 'required|string|max:255',
             'category_id'          => 'required|exists:categories,id',
             'price'                => 'required|numeric|min:0',
-            'quantity'             => 'required|integer|min:0', // Số lượng tổng / mặc định
+            'quantity'             => 'required|integer|min:0',
             'description'          => 'nullable|string',
             'main_image'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            
-            // Validate mảng Kích thước / Biến thể gửi từ Form
+
             'variants'             => 'nullable|array',
             'variants.*.size'      => 'required_with:variants|string|max:255',
             'variants.*.quantity'  => 'required_with:variants|integer|min:0',
@@ -45,15 +43,13 @@ class FurnitureController extends Controller
         $validated['is_featured'] = $request->has('is_featured');
 
         if ($request->hasFile('main_image')) {
-            $validated['main_image'] = $request->file('main_image')->store('products/main', 'public');
+            $validated['main_image'] = $this->imageToBase64($request->file('main_image'));
         }
 
         DB::beginTransaction();
         try {
-            // 1. Tạo sản phẩm chính
             $furniture = Furniture::create($validated);
 
-            // 2. Lưu danh sách Kích thước & Số lượng tương ứng (nếu có)
             if ($request->filled('variants')) {
                 foreach ($request->variants as $variantData) {
                     if (!empty($variantData['size'])) {
@@ -84,7 +80,6 @@ class FurnitureController extends Controller
     public function edit(Furniture $furniture)
     {
         $categories = Category::all();
-        // Tải danh sách kích thước hiện có của sản phẩm
         $furniture->load('variants');
         return view('admin.furnitures.edit', compact('furniture', 'categories'));
     }
@@ -99,7 +94,6 @@ class FurnitureController extends Controller
             'description'          => 'nullable|string',
             'main_image'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
 
-            // Validate mảng Kích thước
             'variants'             => 'nullable|array',
             'variants.*.id'        => 'nullable|exists:furniture_variants,id',
             'variants.*.size'      => 'required_with:variants|string|max:255',
@@ -110,18 +104,14 @@ class FurnitureController extends Controller
         $validated['is_featured'] = $request->has('is_featured');
 
         if ($request->hasFile('main_image')) {
-            if ($furniture->main_image) {
-                Storage::disk('public')->delete($furniture->main_image);
-            }
-            $validated['main_image'] = $request->file('main_image')->store('products/main', 'public');
+            $this->deleteOldImage($furniture->main_image);
+            $validated['main_image'] = $this->imageToBase64($request->file('main_image'));
         }
 
         DB::beginTransaction();
         try {
-            // 1. Cập nhật thông tin sản phẩm gốc
             $furniture->update($validated);
 
-            // 2. Đồng bộ danh sách Kích thước (Thêm mới / Cập nhật / Xóa bỏ)
             if ($request->has('variants')) {
                 $keepVariantIds = [];
 
@@ -139,10 +129,8 @@ class FurnitureController extends Controller
                     }
                 }
 
-                // Xóa những kích thước đã bị xóa trên giao diện Form
                 $furniture->variants()->whereNotIn('id', $keepVariantIds)->delete();
             } else {
-                // Nếu Admin xóa hết kích thước trên giao diện -> Xóa toàn bộ biến thể trong DB
                 $furniture->variants()->delete();
             }
 
@@ -157,13 +145,24 @@ class FurnitureController extends Controller
 
     public function destroy(Furniture $furniture)
     {
-        if ($furniture->main_image) {
-            Storage::disk('public')->delete($furniture->main_image);
-        }
+        $this->deleteOldImage($furniture->main_image);
 
-        // Do đã cài ON DELETE CASCADE ở DB nên các biến thể kích thước sẽ tự động xóa theo
         $furniture->delete();
 
         return redirect()->route('admin.products.index')->with('success', 'Xóa sản phẩm thành công!');
+    }
+
+    // Chuyển ảnh upload thành chuỗi base64 để lưu thẳng vào database
+    private function imageToBase64($file): string
+    {
+        return 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
+    }
+
+    // Chỉ xóa file khi ảnh cũ là đường dẫn trong storage (không phải base64 hay URL)
+    private function deleteOldImage(?string $path): void
+    {
+        if ($path && !str_starts_with($path, 'data:') && !str_starts_with($path, 'http')) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }
