@@ -13,6 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
 
+        // MoMo gọi IPN từ máy chủ, không có CSRF token
+        $middleware->validateCsrfTokens(except: [
+            'payment/momo/ipn',
+        ]);
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
