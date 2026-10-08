@@ -31,8 +31,8 @@
                     <tr>
                         <td class="ps-3">{{ $loop->iteration }}</td>
                         <td>
-                            @if($item->main_image)
-                                <img src="{{ asset('storage/' . $item->main_image) }}" class="rounded" width="50" height="50" style="object-fit: cover;">
+                            @if($item->image_url)
+                                <img src="{{ $item->image_url }}" class="rounded" width="50" height="50" style="object-fit: cover;" alt="{{ $item->name }}">
                             @else
                                 <span class="badge bg-secondary">Không ảnh</span>
                             @endif

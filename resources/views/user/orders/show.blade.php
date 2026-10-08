@@ -138,10 +138,9 @@
                                     <td>
                                         <div class="d-flex align-items-center gap-3">
                                             @php
-                                                $img = $item->furniture->main_image ?? null;
-                                                $imgSrc = $img ? (str_starts_with($img, 'http') ? $img : asset('storage/' . str_replace('public/', '', $img))) : 'https://placehold.co/80';
+                                                $imgSrc = optional($item->furniture)->image_url ?? 'https://placehold.co/80';
                                             @endphp
-                                            <img src="{{ $imgSrc }}" class="rounded-3 border" style="width: 60px; height: 60px; object-fit: cover;">
+                                            <img src="{{ $imgSrc }}" class="rounded-3 border" style="width: 60px; height: 60px; object-fit: cover;" alt="{{ $item->furniture->name ?? 'Sản phẩm' }}">
                                             <div>
                                                 @if($productId)
                                                     <a href="{{ route('user.products.show', $productId) }}" class="fw-bold text-dark text-decoration-none d-block">

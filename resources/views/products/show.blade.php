@@ -9,7 +9,7 @@
         <div class="row g-4 align-items-center">
             <!-- Hình ảnh sản phẩm -->
             <div class="col-md-5">
-                <img src="{{ $product->main_image ? (str_starts_with($product->main_image, 'http') ? $product->main_image : asset('storage/' . str_replace('public/', '', $product->main_image))) : 'https://placehold.co/400x300?text=No+Image' }}"
+                <img src="{{ $product->image_url ?? 'https://placehold.co/400x300?text=No+Image' }}"
                      class="img-fluid rounded-4 w-100 shadow-sm"
                      alt="{{ $product->name }}"
                      style="max-height: 380px; object-fit: cover;">
@@ -56,9 +56,9 @@
                     </p>
                 </div>
 
-                <!-- BỘ CHỌN KÍCH THƯỚC DẠNG NÚT BẤM (VIỀN ĐỎ CHUẨN SHOPEE) -->
+               <!-- BỘ CHỌN KÍCH THƯỚC DẠNG NÚT BẤM (VIỀN ĐỎ CHUẨN SHOPEE) -->
                 @if(!empty($product->variants) && count($product->variants) > 0)
-                    <div class="mb-4">
+                   <div class="mb-4">
                         <label class="form-label fw-bold text-dark d-block mb-2">
                             Chọn kích thước / Phân loại <span class="text-danger">*</span>
                         </label>

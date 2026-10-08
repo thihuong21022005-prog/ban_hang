@@ -80,8 +80,8 @@
             @endif
 
             <div class="w-100 bg-light position-relative" style="aspect-ratio: 1 / 1; overflow: hidden;">
-                @if ($item->main_image)
-                    <img src="{{ asset('storage/' . $item->main_image) }}" class="w-100 h-100" style="object-fit: cover;" alt="{{ $item->name }}">
+                @if ($item->image_url)
+                    <img src="{{ $item->image_url }}" class="w-100 h-100" style="object-fit: cover;" alt="{{ $item->name }}">
                 @else
                     <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
                         <i class="bi bi-image fs-3"></i>
@@ -117,8 +117,8 @@
                         <div class="row g-4">
                             <div class="col-md-5">
                                 <div class="bg-light rounded border overflow-hidden" style="aspect-ratio: 1 / 1;">
-                                    @if ($item->main_image)
-                                        <img src="{{ asset('storage/' . $item->main_image) }}" class="w-100 h-100" style="object-fit: cover;">
+                                    @if ($item->image_url)
+                                        <img src="{{ $item->image_url }}" class="w-100 h-100" style="object-fit: cover;" alt="{{ $item->name }}">
                                     @else
                                         <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
                                             <i class="bi bi-image fs-1"></i>

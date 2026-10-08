@@ -138,8 +138,8 @@
             <div class="col-6 col-sm-4 col-md-3 col-lg-2">
                 <div class="admin-style-card h-100 d-flex flex-column justify-content-between">
                     <a href="{{ route('user.products.show', $product->id) }}" class="text-decoration-none">
-                        <img src="{{ $product->main_image ? (str_starts_with($product->main_image, 'http') ? $product->main_image : asset('storage/' . str_replace('public/', '', $product->main_image))) : 'https://placehold.co/200x160?text=No+Image' }}" 
-                             class="admin-card-img" 
+                        <img src="{{ $product->image_url ?? 'https://placehold.co/200x160?text=No+Image' }}"
+                             class="admin-card-img"
                              alt="{{ $product->name }}">
 
                         <div class="admin-card-title text-truncate" title="{{ $product->name }}">
@@ -154,9 +154,9 @@
                     </a>
 
                     <div class="pt-2">
-                        <button class="btn btn-cart-admin w-100 btn-add-cart" 
-                                data-id="{{ $product->id }}" 
-                                data-name="{{ $product->name }}" 
+                        <button class="btn btn-cart-admin w-100 btn-add-cart"
+                                data-id="{{ $product->id }}"
+                                data-name="{{ $product->name }}"
                                 data-price="{{ $product->price }}">
                             <i class="bi bi-cart-plus me-1"></i> Thêm vào giỏ
                         </button>

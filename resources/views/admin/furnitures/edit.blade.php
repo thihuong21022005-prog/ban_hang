@@ -55,10 +55,10 @@
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Ảnh đại diện mới (nếu muốn đổi)</label>
                     <input type="file" name="main_image" class="form-control" accept="image/*">
-                    @if ($furniture->main_image)
+                    @if ($furniture->image_url)
                         <div class="mt-2">
-                            <img src="{{ str_starts_with($furniture->main_image, 'http') ? $furniture->main_image : asset('storage/' . $furniture->main_image) }}"
-                                 class="rounded border" width="60" height="60" style="object-fit: cover;">
+                            <img src="{{ $furniture->image_url }}"
+                                 class="rounded border" width="60" height="60" style="object-fit: cover;" alt="{{ $furniture->name }}">
                         </div>
                     @endif
                 </div>

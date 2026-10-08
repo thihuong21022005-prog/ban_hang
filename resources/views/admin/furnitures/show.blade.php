@@ -14,17 +14,10 @@
             <!-- HÌNH ẢNH SẢN PHẨM -->
             <div class="col-md-5">
                 <div class="bg-light rounded-3 p-2 text-center border">
-                    @php
-                        $imagePath = $furniture->main_image ?? $furniture->image ?? null;
-                    @endphp
-                    @if($imagePath)
-                        <img src="{{ str_starts_with($imagePath, 'http') ? $imagePath : asset('storage/' . str_replace('public/', '', $imagePath)) }}" 
-                             class="img-fluid rounded" 
-                             alt="{{ $furniture->name }}" 
-                             style="max-height: 380px; object-fit: cover;">
-                    @else
-                        <img src="https://via.placeholder.com/400x300?text=No+Image" class="img-fluid rounded" alt="No image">
-                    @endif
+                    <img src="{{ $furniture->image_url ?? 'https://placehold.co/400x300?text=No+Image' }}"
+                         class="img-fluid rounded"
+                         alt="{{ $furniture->name }}"
+                         style="max-height: 380px; object-fit: cover;">
                 </div>
             </div>
 
