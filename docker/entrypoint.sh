@@ -25,6 +25,11 @@ fi
 su-exec www-data php artisan route:cache
 su-exec www-data php artisan view:cache
 
+# Tao symlink public/storage de hien anh upload
+rm -f public/storage
+chown www-data:www-data public
+su-exec www-data php artisan storage:link || true
+
 # Khởi chạy php-fpm dạng daemon
 php-fpm -D
 
