@@ -51,8 +51,12 @@ class Furniture extends Model
             return null;
         }
 
-        return (str_starts_with($path, 'http') || str_starts_with($path, 'data:'))
-            ? $path
-            : asset('storage/' . $path);
+        // Ảnh http(s) hoặc base64 (data:) dùng trực tiếp
+        if (str_starts_with($path, 'http') || str_starts_with($path, 'data:')) {
+            return $path;
+        }
+
+        // Đường dẫn trong storage: bỏ tiền tố "public/" nếu có
+        return asset('storage/' . ltrim(str_replace('public/', '', $path), '/'));
     }
 }
