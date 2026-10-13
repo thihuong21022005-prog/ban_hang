@@ -8,7 +8,7 @@
                 <i class="bi bi-receipt me-2"></i>QUẢN LÝ ĐƠN HÀNG
             </h4>
 
-            <!-- Lọc trạng thái (Đã đồng bộ với Stepper Shopee) -->
+            <!-- Lọc trạng thái -->
             <form action="{{ route('admin.orders.index') }}" method="GET" class="d-flex align-items-center gap-2">
                 <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">-- Tất cả trạng thái --</option>
@@ -42,6 +42,13 @@
                 </thead>
                 <tbody>
                     @forelse($orders as $order)
+                        @php
+                            // Bắt trạng thái thực tế để chọn đúng Option trong dropdown
+                            $isCompleted = in_array($order->status, ['completed', 'cod_paid']) || $order->shipping_status === 'delivered';
+                            $isShipping = $order->status === 'shipping' || in_array($order->shipping_status, ['delivering', 'picking', 'transporting']);
+                            $isCancelled = $order->status === 'cancelled' || $order->shipping_status === 'cancelled';
+                            $isPaid = !$isCompleted && !$isShipping && !$isCancelled;
+                        @endphp
                         <tr>
                             <td class="fw-bold">#{{ $order->id }}</td>
                             <td>
@@ -59,11 +66,11 @@
                                         {{ strtoupper($order->payment_method ?? 'COD') }}
                                     </span>
                                     
-                                    @if(in_array($order->status, ['paid', 'shipping', 'completed']) || ($order->payment_status ?? '') == 'paid')
+                                    @if(in_array($order->status, ['paid', 'shipping', 'completed', 'cod_paid', 'paid_momo']) || ($order->payment_status ?? '') == 'paid' || $order->shipping_status == 'delivered')
                                         <span class="badge bg-success w-auto me-auto">
                                             <i class="bi bi-check-circle me-1"></i>Đã thanh toán
                                         </span>
-                                    @elseif($order->status == 'cancelled')
+                                    @elseif($isCancelled)
                                         <span class="badge bg-danger w-auto me-auto">
                                             <i class="bi bi-x-circle me-1"></i>Đã hủy
                                         </span>
@@ -75,23 +82,23 @@
                                 </div>
                             </td>
 
-                            <!-- CỘT CẬP NHẬT TRẠNG THÁI (TRUYỀN TRỰC TIẾP ĐẾN CHUẨN STEPPER SHOPEE) -->
+                            <!-- CỘT CẬP NHẬT TRẠNG THÁI (ĐÃ SỬA ĐIỀU KIỆN SELECTED) -->
                             <td>
                                 <form action="{{ route('admin.orders.updateStatus', $order->id) }}" method="POST">
                                     @csrf
                                     @method('PUT')
                                     <select name="status" 
                                             class="form-select form-select-sm fw-semibold 
-                                            @if($order->status == 'paid') border-warning text-dark
-                                            @elseif($order->status == 'shipping') border-primary text-primary
-                                            @elseif($order->status == 'completed') border-success text-success
-                                            @elseif($order->status == 'cancelled') border-danger text-danger
+                                            @if($isPaid) border-warning text-dark
+                                            @elseif($isShipping) border-primary text-primary
+                                            @elseif($isCompleted) border-success text-success
+                                            @elseif($isCancelled) border-danger text-danger
                                             @endif" 
                                             onchange="this.form.submit()">
-                                        <option value="paid" {{ $order->status == 'paid' ? 'selected' : '' }}>📦 1. Chuẩn bị hàng</option>
-                                        <option value="shipping" {{ $order->status == 'shipping' ? 'selected' : '' }}>🚚 2. Giao cho ĐVVC</option>
-                                        <option value="completed" {{ $order->status == 'completed' ? 'selected' : '' }}>✅ 3. Giao thành công</option>
-                                        <option value="cancelled" {{ $order->status == 'cancelled' ? 'selected' : '' }}>❌ Hủy đơn hàng</option>
+                                        <option value="paid" {{ $isPaid ? 'selected' : '' }}>📦 1. Chuẩn bị hàng</option>
+                                        <option value="shipping" {{ $isShipping ? 'selected' : '' }}>🚚 2. Giao cho ĐVVC</option>
+                                        <option value="completed" {{ $isCompleted ? 'selected' : '' }}>✅ 3. Giao thành công</option>
+                                        <option value="cancelled" {{ $isCancelled ? 'selected' : '' }}>❌ Hủy đơn hàng</option>
                                     </select>
                                 </form>
                             </td>
