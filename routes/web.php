@@ -102,7 +102,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/cart', [CartController::class, 'index'])->name('user.cart.index');
     Route::post('/cart/add/{id}', [CartController::class, 'add'])->name('user.cart.add');
     Route::post('/cart/update/{id}', [CartController::class, 'update'])->name('user.cart.update');
-    Route::post('/cart/remove/{id}', [CartController::class, 'remove'])->name('user.cart.remove');
+    
+    // Xóa giỏ hàng (Đã sửa sang match để hỗ trợ GET, POST, DELETE)
+    Route::match(['get', 'post', 'delete'], '/cart/remove/{id}', [CartController::class, 'remove'])->name('user.cart.remove');
 
     // Thanh toán & Đơn hàng
     Route::get('/checkout', [OrderController::class, 'index'])->name('user.checkout');
