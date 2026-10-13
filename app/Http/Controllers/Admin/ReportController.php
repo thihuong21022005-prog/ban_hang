@@ -22,21 +22,22 @@ class ReportController extends Controller
 
         return Order::query()
             ->where('orders.created_at', '<=', now())
-            ->where('orders.status', '!=', 'cancelled')
+            ->whereNotIn('orders.status', ['cancelled', 'canceled'])
             ->whereNotIn('orders.shipping_status', ['cancelled', 'return', 'returned'])
             ->where(function (Builder $query) use ($paymentStatus) {
                 $query->where($paymentStatus, 'paid')
-                    ->orWhere(function (Builder $legacy) {
-                        $legacy->whereDoesntHave('paymentTransactions')
-                            ->whereIn('orders.status', ['paid', 'cod_paid', 'paid_momo']);
-                    });
+                    ->orWhereIn('orders.status', ['paid', 'cod_paid', 'paid_momo', 'completed'])
+                    ->orWhere('orders.shipping_status', 'delivered');
             });
     }
 
     private function categoryRevenue(): Collection
     {
         return DB::table('order_items')
-            ->join('furnitures', 'order_items.product_id', '=', 'furnitures.id')
+            ->join('furnitures', function($join) {
+                $join->on('order_items.furniture_id', '=', 'furnitures.id')
+                     ->orOn('order_items.product_id', '=', 'furnitures.id');
+            })
             ->leftJoin('categories', 'furnitures.category_id', '=', 'categories.id')
             ->whereIn('order_items.order_id', $this->paidOrders()->select('orders.id'))
             ->select('furnitures.category_id', 'categories.name as category_name')
@@ -71,7 +72,6 @@ class ReportController extends Controller
         $totalOrders = Order::where('created_at', '<=', now())->count();
         
         // CHỈ ĐẾM KHÁCH HÀNG THỰC TẾ ĐÃ ĐẶT ĐƠN HÀNG THÀNH CÔNG
-        // Ưu tiên đếm theo tài khoản (user_id), nếu không có user_id (khách vãng lai) thì đếm theo SĐT (phone)
         $totalCustomers = $this->paidOrders()
             ->whereNotNull('user_id')
             ->distinct('user_id')
@@ -136,7 +136,7 @@ class ReportController extends Controller
         $paid = $this->paidOrders()
             ->select('orders.total_price')
             ->selectSub($gateway, 'gateway')
-            ->selectRaw("CASE WHEN orders.status = 'cod_paid' THEN 'cod' ELSE 'momo' END as legacy_gateway");
+            ->selectRaw("CASE WHEN orders.status IN ('cod_paid', 'completed') THEN 'cod' ELSE 'momo' END as legacy_gateway");
 
         $methodRevenue = DB::query()->fromSub($paid, 'paid_orders')
             ->selectRaw('COALESCE(gateway, legacy_gateway) as method, SUM(total_price) as revenue')
