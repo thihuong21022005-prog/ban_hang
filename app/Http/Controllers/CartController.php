@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class CartController extends Controller
 {
-    // Hiển thị danh sách sản phẩm trong giỏ (ảnh lấy từ database, không lưu trong session)
+    // Hiển thị danh sách sản phẩm trong giỏ
     public function index()
     {
         $cart = session()->get('cart', []);
@@ -25,13 +25,29 @@ class CartController extends Controller
         return view('cart.index', compact('cart'));
     }
 
-    // Thêm sản phẩm vào giỏ hàng (Hỗ trợ cả Fetch API JSON & Form Redirect)
+    // Thêm sản phẩm vào giỏ hàng
     public function add(Request $request, $id)
     {
-        $product = Furniture::findOrFail($id);
-        $quantityToAdd = max(1, (int) $request->input('quantity', 1));
+        // Eager load mối quan hệ variants
+        $product = Furniture::with('variants')->findOrFail($id);
 
         $variantId = $request->input('furniture_variant_id', $request->input('variant_id'));
+
+        // BẮT BUỘC CHỌN KÍCH THƯỚC NẾU SẢN PHẨM CÓ PHÂN LOẠI BIẾN THỂ
+        if ($product->variants && $product->variants->count() > 0 && !$variantId) {
+            $warningMsg = "Sản phẩm \"{$product->name}\" có nhiều kích thước. Vui lòng chọn kích thước trước khi thêm vào giỏ hàng!";
+
+            if ($request->wantsJson() || $request->ajax() || $request->isJson()) {
+                return response()->json([
+                    'error' => $warningMsg,
+                    'redirect_url' => route('user.products.show', $product->id)
+                ], 400);
+            }
+
+            return redirect()->route('user.products.show', $product->id)->with('warning', $warningMsg);
+        }
+
+        $quantityToAdd = max(1, (int) $request->input('quantity', 1));
         $selectedDimension = $request->input('selected_dimension', 'Tiêu chuẩn');
 
         $variant = null;
@@ -75,7 +91,6 @@ class CartController extends Controller
             return redirect()->back()->with('error', $msg);
         }
 
-        // Không lưu ảnh vào session (ảnh base64 rất nặng), ảnh được đọc từ database ở index()
         if (isset($cart[$cartKey])) {
             $cart[$cartKey]['quantity'] = $totalRequested;
         } else {
@@ -102,7 +117,7 @@ class CartController extends Controller
         return redirect()->route('user.cart.index')->with('success', $successMsg);
     }
 
-    // Cập nhật số lượng trong giỏ hàng ($id ở đây đóng vai trò là $cartKey)
+    // Cập nhật số lượng trong giỏ hàng
     public function update(Request $request, $id)
     {
         $cartKey = $id;
@@ -146,7 +161,7 @@ class CartController extends Controller
         return redirect()->back()->with('success', 'Đã cập nhật số lượng thành công!');
     }
 
-    // Xóa sản phẩm khỏi giỏ ($id ở đây đóng vai trò là $cartKey)
+    // Xóa sản phẩm khỏi giỏ
     public function remove(Request $request, $id)
     {
         $cartKey = $id;

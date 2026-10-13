@@ -134,7 +134,7 @@
 
     <!-- Lưới sản phẩm -->
     <div class="row g-3">
-        @forelse($products as $product)
+        @forelse($products as$product)
             <div class="col-6 col-sm-4 col-md-3 col-lg-2">
                 <div class="admin-style-card h-100 d-flex flex-column justify-content-between">
                     <a href="{{ route('user.products.show', $product->id) }}" class="text-decoration-none">
@@ -153,13 +153,22 @@
                         </div>
                     </a>
 
+                    <!-- XỬ LÝ NÚT NỘI THẤT CÓ KÍCH THƯỚC (CHUẨN SHOPEE) -->
                     <div class="pt-2">
-                        <button class="btn btn-cart-admin w-100 btn-add-cart"
-                                data-id="{{ $product->id }}"
-                                data-name="{{ $product->name }}"
-                                data-price="{{ $product->price }}">
-                            <i class="bi bi-cart-plus me-1"></i> Thêm vào giỏ
-                        </button>
+                        @if(isset($product->variants) &&$product->variants->count() > 0)
+                            <!-- Nếu có biến thể kích thước -> Chuyển sang trang chi tiết để chọn size -->
+                            <a href="{{ route('user.products.show', $product->id) }}" class="btn btn-cart-admin w-100 d-block text-center text-decoration-none">
+                                <i class="bi bi-cart-plus me-1"></i> Thêm vào giỏ
+                            </a>
+                        @else
+                            <!-- Nếu sản phẩm đơn lẻ -> Thêm thẳng vào giỏ hàng qua AJAX -->
+                            <button class="btn btn-cart-admin w-100 btn-add-cart"
+                                    data-id="{{ $product->id }}"
+                                    data-name="{{ $product->name }}"
+                                    data-price="{{ $product->price }}">
+                                <i class="bi bi-cart-plus me-1"></i> Thêm vào giỏ
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -253,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     closeBtn.onclick = () => {
         chatPopup.classList.add("d-none");
-        toggleBtn.classList.remove("d-none");
+        toggleBtn.remove("d-none");
     };
 
     function loadMessages() {
