@@ -49,7 +49,6 @@ class OrderController extends Controller
     // Cập nhật trạng thái đơn hàng
     public function updateStatus(Request $request, $id)
     {
-        // 1. Thêm 'paid' vào Validation để khớp với value gửi từ View
         $request->validate([
             'status'         => 'required|in:paid,pending,processing,shipping,completed,canceled,cancelled',
             'payment_status' => 'nullable|string'
@@ -71,13 +70,13 @@ class OrderController extends Controller
                 $order->shipping_status = 'delivering';
             } elseif ($newStatus === 'completed') {
                 $order->shipping_status = 'delivered';
-                $order->payment_status = 'paid'; // Đơn đã giao thành công thì tự động đánh dấu đã thanh toán
 
                 // Nếu là đơn COD thì đổi status chuẩn thành cod_paid
                 if ($order->payment_method === 'cod') {
                     $newStatus = 'cod_paid';
                 }
 
+                // Cập nhật trạng thái tài chính ở bảng payment_transactions
                 PaymentTransaction::where('order_id', $order->id)->update([
                     'status' => 'paid'
                 ]);
@@ -139,17 +138,15 @@ class OrderController extends Controller
             }
 
             // -------------------------------------------------------------
-            // TRƯỜNG HỢP 3: Cập nhật payment_status trực tiếp từ Form (nếu có)
+            // TRƯỜNG HỢP 3: Cập nhật giao dịch tài chính nếu có gửi payment_status
             // -------------------------------------------------------------
             if ($request->filled('payment_status')) {
-                $order->payment_status = $request->payment_status;
-
                 PaymentTransaction::where('order_id', $order->id)->update([
                     'status' => $request->payment_status
                 ]);
             }
 
-            // Lưu trạng thái đơn hàng
+            // Lưu trạng thái đơn hàng (Đã loại bỏ hoàn toàn payment_status)
             $order->status = $newStatus;
             $order->save();
 
