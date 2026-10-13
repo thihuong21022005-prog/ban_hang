@@ -19,7 +19,7 @@ use App\Http\Controllers\User\OrderController;
 use App\Http\Controllers\User\MomoController;
 use App\Http\Controllers\User\ProfileController;
 use App\Http\Controllers\User\ChatController as UserChatController;
-use App\Http\Controllers\User\ReviewController; // Bổ sung import ReviewController
+use App\Http\Controllers\User\ReviewController;
 use App\Models\Furniture;
 
 /*
@@ -150,8 +150,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');
     
-    // Cập nhật trạng thái đơn hàng
-    Route::put('/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.updateStatus');
+    // Cập nhật trạng thái đơn hàng (Đã sửa sang match để chấp nhận cả PUT, PATCH và POST)
+    Route::match(['put', 'patch', 'post'], '/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.updateStatus');
 
     // Tài chính
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');
