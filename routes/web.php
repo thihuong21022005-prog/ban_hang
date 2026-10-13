@@ -31,13 +31,13 @@ use App\Models\Furniture;
 Route::post('/payment/momo/ipn', [MomoController::class, 'ipn'])->name('payment.momo.ipn');
 Route::get('/payment/momo/callback', [MomoController::class, 'callback'])->name('user.payment.momo.callback');
 
-// Xem trang chủ & sản phẩm công khai
+// Xem trang chủ & sản phẩm công khai (Đã thêm eager load variants & category)
 Route::get('/', function () {
     if (auth()->check() && strtolower(auth()->user()->role) === 'admin') {
         return redirect()->route('admin.dashboard');
     }
 
-    $products = Furniture::all(); 
+    $products = Furniture::with(['variants', 'category'])->get(); 
     return view('welcome', compact('products'));
 })->name('welcome');
 
@@ -150,7 +150,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');
     
-    // Cập nhật trạng thái đơn hàng (Đã sửa sang match để chấp nhận cả PUT, PATCH và POST)
+    // Cập nhật trạng thái đơn hàng (Chấp nhận cả PUT, PATCH và POST)
     Route::match(['put', 'patch', 'post'], '/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.updateStatus');
 
     // Tài chính
