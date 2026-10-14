@@ -143,7 +143,7 @@ class OrderController extends Controller
                 'address'         => $request->address,
                 'phone'           => $request->phone,
                 'total_price'     => $finalTotal,
-                'payment_method'  => $request->payment_method, // ĐÃ BỔ SUNG GÁN PHƯƠNG THỨC THANH TOÁN
+                'payment_method'  => $request->payment_method,
                 'status'          => 'pending',
                 'to_district_id'  => (int) $request->to_district_id,
                 'to_ward_code'    => (string) $request->to_ward_code,
