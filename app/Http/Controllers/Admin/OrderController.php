@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\PaymentTransaction; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class OrderController extends Controller
 {
@@ -157,6 +158,85 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Cập nhật thất bại: ' . $e->getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------
+    // TẠO VẬN ĐƠN GHN TỰ ĐỘNG & CHUYỂN TRẠNG THÁI SANG ĐANG GIAO HÀNG
+    // -------------------------------------------------------------
+    public function createGhnOrder($id)
+    {
+        $order = Order::with(['items', 'user'])->findOrFail($id);
+
+        // 1. Kiểm tra nếu đơn hàng đã có mã vận đơn GHN
+        if (!empty($order->shipping_code)) {
+            return back()->with('error', "Đơn hàng này đã có mã vận đơn GHN: {$order->shipping_code}");
+        }
+
+        try {
+            // 2. Lấy GHN Token & ShopID từ file .env (hoặc mặc định Sandbox GHN)
+            $ghnToken = env('GHN_TOKEN', 'YOUR_GHN_TOKEN'); 
+            $ghnShopId = env('GHN_SHOP_ID', 'YOUR_GHN_SHOP_ID');
+
+            // 3. Chuẩn bị danh sách sản phẩm gửi sang GHN
+            $items = [];
+            foreach ($order->items as $item) {
+                $items[] = [
+                    "name"     => $item->furniture_name ?? $item->name ?? "Sản phẩm nội thất",
+                    "quantity" => (int) $item->quantity,
+                    "price"    => (int) $item->price,
+                    "length"   => 20,
+                    "width"    => 20,
+                    "height"   => 20,
+                    "weight"   => 1000
+                ];
+            }
+
+            // 4. Dữ liệu Payload gửi sang GHN API
+            $payload = [
+                "payment_type_id"   => 2, // Người nhận trả cước phí vận chuyển
+                "note"              => "Đơn hàng nội thất - Giao giờ hành chính",
+                "required_note"     => "KHONGCHOXEMHANG",
+                "to_name"           => $order->name ?? optional($order->user)->name ?? 'Khách hàng',
+                "to_phone"          => $order->phone ?? optional($order->user)->phone ?? '0987654321',
+                "to_address"        => $order->address ?? 'Địa chỉ giao hàng',
+                "to_ward_code"      => (string) ($order->ward_id ?? "20109"),
+                "to_district_id"    => (int) ($order->district_id ?? 1442),
+                "cod_amount"        => ($order->payment_method === 'cod') ? (int) $order->total_price : 0, // Tiền thu hộ COD
+                "weight"            => 2000,
+                "length"            => 30,
+                "width"             => 30,
+                "height"            => 30,
+                "service_type_id"   => 2,
+                "items"             => $items
+            ];
+
+            // 5. Gọi API GHN Create Shipping Order
+            $response = Http::withHeaders([
+                'Token'        => $ghnToken,
+                'ShopId'       => $ghnShopId,
+                'Content-Type' => 'application/json'
+            ])->post('https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create', $payload);
+
+            $result = $response->json();
+
+            if (isset($result['code']) && $result['code'] == 200) {
+                $orderCode = $result['data']['order_code'];
+
+                // Cập nhật mã vận đơn GHN & TỰ ĐỘNG CHUYỂN TRẠNG THÁI SANG GIAO CHO ĐVVC
+                $order->shipping_code = $orderCode;
+                $order->status = 'shipping';
+                $order->shipping_status = 'delivering';
+                $order->save();
+
+                return back()->with('success', "Tạo vận đơn GHN thành công! Mã vận đơn: {$orderCode}");
+            } else {
+                $errorMsg = $result['message'] ?? 'Lỗi không xác định từ API GHN';
+                return back()->with('error', "Không thể tạo vận đơn GHN: {$errorMsg}");
+            }
+
+        } catch (\Exception $e) {
+            return back()->with('error', "Lỗi kết nối GHN: " . $e->getMessage());
         }
     }
 }

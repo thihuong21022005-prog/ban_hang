@@ -103,7 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/cart/add/{id}', [CartController::class, 'add'])->name('user.cart.add');
     Route::post('/cart/update/{id}', [CartController::class, 'update'])->name('user.cart.update');
     
-    // Xóa giỏ hàng (Đã sửa sang match để hỗ trợ GET, POST, DELETE)
+    // Xóa giỏ hàng (Hỗ trợ GET, POST, DELETE)
     Route::match(['get', 'post', 'delete'], '/cart/remove/{id}', [CartController::class, 'remove'])->name('user.cart.remove');
 
     // Thanh toán & Đơn hàng
@@ -148,12 +148,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::resource('categories', CategoryController::class);
     Route::resource('furnitures', FurnitureController::class)->names('products');
 
-    // Đơn hàng
+    // Đơn hàng & Tạo vận đơn GHN
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{id}', [AdminOrderController::class, 'show'])->name('orders.show');
-    
-    // Cập nhật trạng thái đơn hàng (Chấp nhận cả PUT, PATCH và POST)
     Route::match(['put', 'patch', 'post'], '/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.updateStatus');
+    
+    // ROUTE TẠO VẬN ĐƠN GHN
+    Route::post('/orders/{id}/create-ghn-order', [AdminOrderController::class, 'createGhnOrder'])->name('orders.createGhnOrder');
 
     // Tài chính
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance.index');
