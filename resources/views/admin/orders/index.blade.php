@@ -50,7 +50,7 @@
                 <tbody>
                     @forelse($orders as $order)
                         @php
-                            // Bắt chuẩn xác 100% các trạng thái bao gồm cả canceled (1 chữ l) và cancelled (2 chữ l)
+                            // Bắt chuẩn xác 100% các trạng thái hủy bao gồm cả canceled (1 chữ l) và cancelled (2 chữ l)
                             $isCancelled = in_array($order->status, ['canceled', 'cancelled']) || $order->shipping_status === 'cancelled';
                             $isCompleted = !$isCancelled && (in_array($order->status, ['completed', 'cod_paid']) || $order->shipping_status === 'delivered');
                             $isShipping = !$isCancelled && !$isCompleted && ($order->status === 'shipping' || in_array($order->shipping_status, ['delivering', 'picking', 'transporting']));
@@ -90,29 +90,35 @@
                                 </div>
                             </td>
 
-                            <!-- CỘT CẬP NHẬT TRẠNG THÁI -->
+                            <!-- CỘT CẬP NHẬT TRẠNG THÁI (KHÓA THẺ CHỌN NẾU ĐÃ HỦY) -->
                             <td>
-                                <form action="{{ route('admin.orders.updateStatus', $order->id) }}" method="POST">
-                                    @csrf
-                                    @method('PUT')
-                                    <select name="status" 
-                                            class="form-select form-select-sm fw-semibold 
-                                            @if($isCancelled) border-danger text-danger bg-light
-                                            @elseif($isPending) border-secondary text-secondary
-                                            @elseif($isPaid) border-warning text-dark
-                                            @elseif($isShipping) border-primary text-primary
-                                            @elseif($isCompleted) border-success text-success
-                                            @endif" 
-                                            onchange="this.form.submit()">
-                                        @if($isPending)
-                                            <option value="pending" selected>⏳ Chờ xử lý</option>
-                                        @endif
-                                        <option value="paid" {{ $isPaid ? 'selected' : '' }}>📦 1. Chuẩn bị hàng</option>
-                                        <option value="shipping" {{ $isShipping ? 'selected' : '' }}>🚚 2. Giao cho ĐVVC</option>
-                                        <option value="completed" {{ $isCompleted ? 'selected' : '' }}>✅ 3. Giao thành công</option>
-                                        <option value="cancelled" {{ $isCancelled ? 'selected' : '' }}>❌ Đã hủy</option>
-                                    </select>
-                                </form>
+                                @if($isCancelled)
+                                    <!-- Nếu đơn bị hủy: Hiển thị Badge đỏ khóa chọn -->
+                                    <span class="badge bg-danger-subtle text-danger border border-danger px-3 py-2 fw-bold fs-6 rounded-2 d-inline-block">
+                                        <i class="bi bi-x-circle me-1"></i>❌ Đã hủy
+                                    </span>
+                                @else
+                                    <form action="{{ route('admin.orders.updateStatus', $order->id) }}" method="POST">
+                                        @csrf
+                                        @method('PUT')
+                                        <select name="status" 
+                                                class="form-select form-select-sm fw-semibold 
+                                                @if($isPending) border-secondary text-secondary
+                                                @elseif($isPaid) border-warning text-dark
+                                                @elseif($isShipping) border-primary text-primary
+                                                @elseif($isCompleted) border-success text-success
+                                                @endif" 
+                                                onchange="this.form.submit()">
+                                            @if($isPending)
+                                                <option value="pending" selected>⏳ Chờ xử lý</option>
+                                            @endif
+                                            <option value="paid" {{ $isPaid ? 'selected' : '' }}>📦 1. Chuẩn bị hàng</option>
+                                            <option value="shipping" {{ $isShipping ? 'selected' : '' }}>🚚 2. Giao cho ĐVVC</option>
+                                            <option value="completed" {{ $isCompleted ? 'selected' : '' }}>✅ 3. Giao thành công</option>
+                                            <option value="cancelled">❌ Đã hủy</option>
+                                        </select>
+                                    </form>
+                                @endif
                             </td>
                             
                             <td class="small text-muted">{{ $order->created_at ? $order->created_at->format('d/m/Y H:i') : '' }}</td>
