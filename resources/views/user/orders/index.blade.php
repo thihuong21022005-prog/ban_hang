@@ -45,6 +45,16 @@
                     </thead>
                     <tbody>
                         @foreach($orders as $order)
+                            @php
+                                // BẮT CHUẨN XÁC TRẠNG THÁI ĐỒNG BỘ VỚI ADMIN
+                                $isCancelled = in_array($order->status, ['canceled', 'cancelled']) || $order->shipping_status === 'cancelled';
+                                $isCompleted = !$isCancelled && (in_array($order->status, ['completed', 'cod_paid']) || $order->shipping_status === 'delivered');
+                                $isShipping = !$isCancelled && !$isCompleted && ($order->status === 'shipping' || in_array($order->shipping_status, ['delivering', 'picking', 'transporting']));
+                                $isProcessing = !$isCancelled && !$isCompleted && !$isShipping && in_array($order->status, ['paid', 'processing', 'cod_ordered']);
+                                $isPending = !$isCancelled && !$isCompleted && !$isShipping && !$isProcessing && $order->status === 'pending';
+                                
+                                $shippingCode = $order->shipping_code ?? $order->ghn_order_code;
+                            @endphp
                             <tr>
                                 <td class="ps-3">
                                     <span class="fw-bold text-primary">#{{ $order->id }}</span>
@@ -59,28 +69,28 @@
                                 </td>
                                 <td>
                                     <span class="fw-bold text-danger">
-                                        {{ number_format($order->total_price ?? $order->total_amount ?? 0) }} đ
+                                        {{ number_format($order->total_price ?? $order->total_amount ?? $order->total ?? 0, 0, ',', '.') }} đ
                                     </span>
                                     <div class="small text-muted">{{ strtoupper($order->payment_method ?? 'COD') }}</div>
                                 </td>
 
-                                <!-- BỘ NHÃN TRẠNG THÁI ĐỒNG BỘ STEPPER -->
+                                <!-- TRẠNG THÁI GIAO HÀNG ĐỒNG BỘ 100% -->
                                 <td>
-                                    @if(in_array($order->status, ['paid', 'cod_ordered']))
-                                        <span class="badge bg-warning text-dark rounded-pill px-3 py-2">
-                                            <i class="bi bi-box-seam me-1"></i>1. Shop đang chuẩn bị
+                                    @if($isCancelled)
+                                        <span class="badge bg-danger rounded-pill px-3 py-2">
+                                            <i class="bi bi-x-circle me-1"></i>Đã hủy
                                         </span>
-                                    @elseif($order->status === 'shipping')
-                                        <span class="badge bg-primary rounded-pill px-3 py-2">
-                                            <i class="bi bi-truck me-1"></i>2. Đang giao hàng
-                                        </span>
-                                    @elseif($order->status === 'completed')
+                                    @elseif($isCompleted)
                                         <span class="badge bg-success rounded-pill px-3 py-2">
                                             <i class="bi bi-check-circle me-1"></i>3. Giao thành công
                                         </span>
-                                    @elseif(in_array($order->status, ['cancelled', 'canceled']))
-                                        <span class="badge bg-danger rounded-pill px-3 py-2">
-                                            <i class="bi bi-x-circle me-1"></i>Đã hủy
+                                    @elseif($isShipping)
+                                        <span class="badge bg-primary rounded-pill px-3 py-2">
+                                            <i class="bi bi-truck me-1"></i>2. Đang giao hàng
+                                        </span>
+                                    @elseif($isProcessing)
+                                        <span class="badge bg-warning text-dark rounded-pill px-3 py-2">
+                                            <i class="bi bi-box-seam me-1"></i>1. Shop đang chuẩn bị
                                         </span>
                                     @else
                                         <span class="badge bg-secondary rounded-pill px-3 py-2">
@@ -89,25 +99,24 @@
                                     @endif
                                 </td>
 
+                                <!-- MÃ VẬN ĐƠN GHN -->
                                 <td>
-                                    @if($order->ghn_order_code)
-                                        <span class="badge bg-light text-dark border font-monospace fs-6">
-                                            🚚 {{ $order->ghn_order_code }}
+                                    @if(!empty($shippingCode))
+                                        <span class="badge bg-light text-dark border font-monospace fs-6 px-2 py-1">
+                                            🚚 {{ $shippingCode }}
                                         </span>
                                     @else
-                                        <span class="text-muted fs-7">Chưa tạo vận đơn</span>
+                                        <span class="text-muted small">Chưa tạo vận đơn</span>
                                     @endif
                                 </td>
 
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center align-items-center gap-2">
-                                        <!-- Nút Xem Chi Tiết Tiến Trình Stepper & Đánh Giá -->
                                         <a href="{{ route('user.orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                             <i class="bi bi-eye me-1"></i>Chi tiết
                                         </a>
 
-                                        <!-- Nút Thanh toán lại nếu đơn đang pending -->
-                                        @if($order->status === 'pending')
+                                        @if($isPending)
                                             <a href="{{ route('user.orders.momo.pay', $order) }}" class="btn btn-sm btn-success rounded-pill px-3 fw-bold">
                                                 Thanh toán
                                             </a>
