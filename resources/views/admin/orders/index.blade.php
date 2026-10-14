@@ -27,6 +27,13 @@
             </div>
         @endif
 
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle me-1"></i> {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-dark">
@@ -43,18 +50,19 @@
                 <tbody>
                     @forelse($orders as $order)
                         @php
-                            // Bắt trạng thái thực tế để chọn đúng Option trong dropdown
-                            $isCompleted = in_array($order->status, ['completed', 'cod_paid']) || $order->shipping_status === 'delivered';
-                            $isShipping = $order->status === 'shipping' || in_array($order->shipping_status, ['delivering', 'picking', 'transporting']);
-                            $isCancelled = $order->status === 'cancelled' || $order->shipping_status === 'cancelled';
-                            $isPaid = !$isCompleted && !$isShipping && !$isCancelled;
+                            // Bắt chuẩn xác 100% các trạng thái bao gồm cả canceled (1 chữ l) và cancelled (2 chữ l)
+                            $isCancelled = in_array($order->status, ['canceled', 'cancelled']) || $order->shipping_status === 'cancelled';
+                            $isCompleted = !$isCancelled && (in_array($order->status, ['completed', 'cod_paid']) || $order->shipping_status === 'delivered');
+                            $isShipping = !$isCancelled && !$isCompleted && ($order->status === 'shipping' || in_array($order->shipping_status, ['delivering', 'picking', 'transporting']));
+                            $isPending = !$isCancelled && !$isCompleted && !$isShipping && $order->status === 'pending';
+                            $isPaid = !$isCancelled && !$isCompleted && !$isShipping && !$isPending;
                         @endphp
-                        <tr>
+                        <tr class="{{ $isCancelled ? 'table-light' : '' }}">
                             <td class="fw-bold">#{{ $order->id }}</td>
                             <td>
                                 <div class="fw-semibold text-dark">{{ $order->user->name ?? $order->name ?? 'Khách hàng' }}</div>
-                                @if($order->phone)
-                                    <small class="text-muted d-block">{{ $order->phone }}</small>
+                                @if($order->phone ?? optional($order->user)->phone)
+                                    <small class="text-muted d-block">{{ $order->phone ?? optional($order->user)->phone }}</small>
                                 @endif
                             </td>
                             <td class="text-danger fw-bold">{{ number_format($order->total_price ?? $order->total ?? 0, 0, ',', '.') }} VNĐ</td>
@@ -66,13 +74,13 @@
                                         {{ strtoupper($order->payment_method ?? 'COD') }}
                                     </span>
                                     
-                                    @if(in_array($order->status, ['paid', 'shipping', 'completed', 'cod_paid', 'paid_momo']) || ($order->payment_status ?? '') == 'paid' || $order->shipping_status == 'delivered')
-                                        <span class="badge bg-success w-auto me-auto">
-                                            <i class="bi bi-check-circle me-1"></i>Đã thanh toán
-                                        </span>
-                                    @elseif($isCancelled)
+                                    @if($isCancelled)
                                         <span class="badge bg-danger w-auto me-auto">
                                             <i class="bi bi-x-circle me-1"></i>Đã hủy
+                                        </span>
+                                    @elseif(in_array($order->status, ['paid', 'shipping', 'completed', 'cod_paid', 'paid_momo']) || ($order->payment_status ?? '') == 'paid' || $order->shipping_status == 'delivered')
+                                        <span class="badge bg-success w-auto me-auto">
+                                            <i class="bi bi-check-circle me-1"></i>Đã thanh toán
                                         </span>
                                     @else
                                         <span class="badge bg-warning text-dark w-auto me-auto">
@@ -82,23 +90,27 @@
                                 </div>
                             </td>
 
-                            <!-- CỘT CẬP NHẬT TRẠNG THÁI (ĐÃ SỬA ĐIỀU KIỆN SELECTED) -->
+                            <!-- CỘT CẬP NHẬT TRẠNG THÁI -->
                             <td>
                                 <form action="{{ route('admin.orders.updateStatus', $order->id) }}" method="POST">
                                     @csrf
                                     @method('PUT')
                                     <select name="status" 
                                             class="form-select form-select-sm fw-semibold 
-                                            @if($isPaid) border-warning text-dark
+                                            @if($isCancelled) border-danger text-danger bg-light
+                                            @elseif($isPending) border-secondary text-secondary
+                                            @elseif($isPaid) border-warning text-dark
                                             @elseif($isShipping) border-primary text-primary
                                             @elseif($isCompleted) border-success text-success
-                                            @elseif($isCancelled) border-danger text-danger
                                             @endif" 
                                             onchange="this.form.submit()">
+                                        @if($isPending)
+                                            <option value="pending" selected>⏳ Chờ xử lý</option>
+                                        @endif
                                         <option value="paid" {{ $isPaid ? 'selected' : '' }}>📦 1. Chuẩn bị hàng</option>
                                         <option value="shipping" {{ $isShipping ? 'selected' : '' }}>🚚 2. Giao cho ĐVVC</option>
                                         <option value="completed" {{ $isCompleted ? 'selected' : '' }}>✅ 3. Giao thành công</option>
-                                        <option value="cancelled" {{ $isCancelled ? 'selected' : '' }}>❌ Hủy đơn hàng</option>
+                                        <option value="cancelled" {{ $isCancelled ? 'selected' : '' }}>❌ Đã hủy</option>
                                     </select>
                                 </form>
                             </td>
