@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\PaymentTransaction;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class MomoService
@@ -60,33 +59,44 @@ class MomoService
         ]);
 
         try {
-            $verifySsl = config('services.momo.verify_ssl', filter_var(env('MOMO_VERIFY_SSL', false), FILTER_VALIDATE_BOOLEAN));
+            $payloadJson = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-            // Thêm User-Agent và Content-Type JSON để tránh bị Nginx WAF trên MoMo từ chối (403 Forbidden)
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json; charset=UTF-8',
-                'User-Agent'   => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            ])->withOptions([
-                'verify'  => $verifySsl,
-                'timeout' => 15,
-            ])->asJson()->post($endpoint, $data);
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $payloadJson,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_TIMEOUT        => 20,
+                CURLOPT_HTTPHEADER     => [
+                    'Content-Type: application/json; charset=UTF-8',
+                    'Content-Length: ' . strlen($payloadJson),
+                    'Accept: application/json',
+                    'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                ],
+            ]);
 
-            $result = $response->json();
+            $responseBody = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            $result = json_decode($responseBody, true);
 
             if (!is_array($result) || !isset($result['payUrl'])) {
                 Log::error('MoMo raw response', [
-                    'status'       => $response->status(),
-                    'body'         => $response->body(),
+                    'status'       => $httpCode,
+                    'curl_error'   => $curlError,
+                    'body'         => $responseBody,
                     'endpoint'     => $endpoint,
                     'partner_code' => $partnerCode,
                     'request_type' => $requestType,
-                    'redirect_url' => $redirectUrl,
-                    'ipn_url'      => $ipnUrl,
                 ]);
             }
 
             if (!is_array($result)) {
-                $result = ['message' => 'MoMo HTTP ' . $response->status() . ' (không phải JSON): ' . strip_tags($response->body())];
+                $result = ['message' => 'MoMo HTTP ' . $httpCode . ' (không phải JSON): ' . strip_tags($responseBody)];
             }
         } catch (\Throwable $e) {
             Log::error('MoMo HTTP Exception:', ['error' => $e->getMessage()]);
