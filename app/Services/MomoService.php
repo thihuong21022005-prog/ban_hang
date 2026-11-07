@@ -25,8 +25,7 @@ class MomoService
         $extraData = (string) $order->id;
         $requestId = (string) time();
 
-        // Mặc định chuyển loại thanh toán sang Visa/Mastercard (payWithCC)
-        $requestType = config('services.momo.request_type') ?: env('MOMO_REQUEST_TYPE', 'payWithCC');
+        $requestType = config('services.momo.request_type') ?: env('MOMO_REQUEST_TYPE', 'captureWallet');
 
         $rawHash = 'accessKey=' . $accessKey .
             '&amount=' . $amount .
@@ -63,10 +62,14 @@ class MomoService
         try {
             $verifySsl = config('services.momo.verify_ssl', filter_var(env('MOMO_VERIFY_SSL', false), FILTER_VALIDATE_BOOLEAN));
 
-            $response = Http::withOptions([
+            // Thêm User-Agent và Content-Type JSON để tránh bị Nginx WAF trên MoMo từ chối (403 Forbidden)
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json; charset=UTF-8',
+                'User-Agent'   => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            ])->withOptions([
                 'verify'  => $verifySsl,
                 'timeout' => 15,
-            ])->post($endpoint, $data);
+            ])->asJson()->post($endpoint, $data);
 
             $result = $response->json();
 
@@ -83,7 +86,7 @@ class MomoService
             }
 
             if (!is_array($result)) {
-                $result = ['message' => 'MoMo trả về không phải JSON: ' . $response->body()];
+                $result = ['message' => 'MoMo HTTP ' . $response->status() . ' (không phải JSON): ' . strip_tags($response->body())];
             }
         } catch (\Throwable $e) {
             Log::error('MoMo HTTP Exception:', ['error' => $e->getMessage()]);
