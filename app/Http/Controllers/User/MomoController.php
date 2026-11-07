@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Furniture; // <<-- Bổ sung Model Furniture
+use App\Models\Furniture;
 use App\Models\Order;
 use App\Models\PaymentTransaction;
 use App\Services\GHNOrderService;
@@ -80,18 +80,28 @@ class MomoController extends Controller
     {
         return PaymentTransaction::create([
             'order_id' => $order->id,
-            'gateway' => 'momo',
-            'amount' => $order->total_price,
-            'status' => 'pending',
+            'gateway'  => 'momo',
+            'amount'   => $order->total_price,
+            'status'   => 'pending',
         ]);
     }
 
     private function redirectToMomo(Order $order, PaymentTransaction $transaction, MomoService $momo)
     {
         $result = $momo->createPayment($order, $transaction);
-        return isset($result['payUrl'])
-            ? redirect($result['payUrl'])
-            : redirect()->route('user.orders.index')->with('error', 'Không thể kết nối tới MoMo.');
+
+        if (!isset($result['payUrl'])) {
+            Log::error('MoMo Create Payment Failed:', [
+                'order_id'       => $order->id,
+                'transaction_id' => $transaction->id,
+                'response'       => $result,
+            ]);
+
+            $errorMessage = $result['message'] ?? ($result['localMessage'] ?? 'Không thể khởi tạo giao dịch (Không nhận được payUrl).');
+            return redirect()->route('user.orders.index')->with('error', 'Lỗi MoMo: ' . $errorMessage);
+        }
+
+        return redirect($result['payUrl']);
     }
 
     private function completePayment(array $payload, GHNOrderService $ghnOrders, MomoService $momo): string
@@ -126,9 +136,9 @@ class MomoController extends Controller
 
             // Cập nhật trạng thái đơn thành công
             $order->update([
-                'status' => 'paid',
+                'status'          => 'paid',
                 'shipping_status' => 'processing',
-                'payment_method' => 'momo', 
+                'payment_method'  => 'momo', 
             ]);
 
             $momo->markPaid($transaction, $payload);
@@ -145,7 +155,7 @@ class MomoController extends Controller
 
         if (isset($response['code']) && $response['code'] === 200) {
             $order->update([
-                'ghn_order_code' => $response['data']['order_code'],
+                'ghn_order_code'  => $response['data']['order_code'],
                 'shipping_status' => 'ready_to_pick',
             ]);
             return 'created';
