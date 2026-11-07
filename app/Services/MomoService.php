@@ -24,7 +24,9 @@ class MomoService
         $ipnUrl = config('services.momo.ipn_url') ?: route('payment.momo.ipn');
         $extraData = (string) $order->id;
         $requestId = (string) time();
-        $requestType = config('services.momo.request_type') ?: env('MOMO_REQUEST_TYPE', 'captureWallet');
+
+        // Mặc định chuyển loại thanh toán sang Visa/Mastercard (payWithCC)
+        $requestType = config('services.momo.request_type') ?: env('MOMO_REQUEST_TYPE', 'payWithCC');
 
         $rawHash = 'accessKey=' . $accessKey .
             '&amount=' . $amount .
@@ -59,21 +61,22 @@ class MomoService
         ]);
 
         try {
-            // Đọc MOMO_VERIFY_SSL từ env (mặc định true). Chỉ đặt false nếu bị lỗi chứng chỉ SSL.
+            $verifySsl = config('services.momo.verify_ssl', filter_var(env('MOMO_VERIFY_SSL', false), FILTER_VALIDATE_BOOLEAN));
+
             $response = Http::withOptions([
-                'verify'  => filter_var(env('MOMO_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
+                'verify'  => $verifySsl,
                 'timeout' => 15,
             ])->post($endpoint, $data);
 
             $result = $response->json();
 
-            // Log nội dung thô MoMo trả về để biết lỗi thật (không chứa key bí mật)
             if (!is_array($result) || !isset($result['payUrl'])) {
                 Log::error('MoMo raw response', [
                     'status'       => $response->status(),
                     'body'         => $response->body(),
                     'endpoint'     => $endpoint,
                     'partner_code' => $partnerCode,
+                    'request_type' => $requestType,
                     'redirect_url' => $redirectUrl,
                     'ipn_url'      => $ipnUrl,
                 ]);
