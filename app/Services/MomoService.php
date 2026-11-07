@@ -60,10 +60,17 @@ class MomoService
 
         try {
             // Đọc MOMO_VERIFY_SSL từ env (mặc định true). Chỉ đặt false nếu bị lỗi chứng chỉ SSL.
-            $response = Http::withOptions([
-                'verify'  => filter_var(env('MOMO_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
-                'timeout' => 15,
-            ])->post($endpoint, $data);
+            // Thêm header giống trình duyệt để tránh bị MoMo (nginx) chặn 403
+            $response = Http::withHeaders([
+                    'User-Agent'   => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json; charset=UTF-8',
+                ])
+                ->withOptions([
+                    'verify'  => filter_var(env('MOMO_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
+                    'timeout' => 15,
+                ])
+                ->post($endpoint, $data);
 
             $result = $response->json();
 
