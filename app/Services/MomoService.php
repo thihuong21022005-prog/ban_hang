@@ -6,15 +6,16 @@ use App\Models\Order;
 use App\Models\PaymentTransaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class MomoService
 {
     public function createPayment(Order $order, PaymentTransaction $transaction): array
     {
-        $endpoint = config('services.momo.endpoint', 'https://test-payment.momo.vn/v2/gateway/api/create');
-        $partnerCode = config('services.momo.partner_code', env('MOMO_PARTNER_CODE', ''));
-        $accessKey = config('services.momo.access_key', env('MOMO_ACCESS_KEY', ''));
-        $secretKey = config('services.momo.secret_key', env('MOMO_SECRET_KEY', ''));
+        $endpoint = config('services.momo.endpoint') ?: env('MOMO_ENDPOINT', 'https://test-payment.momo.vn/v2/gateway/api/create');
+        $partnerCode = config('services.momo.partner_code') ?: env('MOMO_PARTNER_CODE', '');
+        $accessKey = config('services.momo.access_key') ?: env('MOMO_ACCESS_KEY', '');
+        $secretKey = config('services.momo.secret_key') ?: env('MOMO_SECRET_KEY', '');
 
         $orderInfo = 'Thanh toan don hang #' . $order->id;
         $amount = (string) ((int) $order->total_price);
@@ -23,7 +24,7 @@ class MomoService
         $ipnUrl = config('services.momo.ipn_url') ?: route('payment.momo.ipn');
         $extraData = (string) $order->id;
         $requestId = (string) time();
-        $requestType = 'payWithCC';
+        $requestType = config('services.momo.request_type') ?: env('MOMO_REQUEST_TYPE', 'captureWallet');
 
         $rawHash = 'accessKey=' . $accessKey .
             '&amount=' . $amount .
@@ -39,35 +40,42 @@ class MomoService
         $data = [
             'partnerCode' => $partnerCode,
             'partnerName' => 'Fruit Shop',
-            'storeId' => 'MomoStore',
-            'requestId' => $requestId,
-            'amount' => $amount,
-            'orderId' => $orderId,
-            'orderInfo' => $orderInfo,
+            'storeId'     => 'MomoStore',
+            'requestId'   => $requestId,
+            'amount'      => $amount,
+            'orderId'     => $orderId,
+            'orderInfo'   => $orderInfo,
             'redirectUrl' => $redirectUrl,
-            'ipnUrl' => $ipnUrl,
-            'lang' => 'vi',
-            'extraData' => $extraData,
+            'ipnUrl'      => $ipnUrl,
+            'lang'        => 'vi',
+            'extraData'   => $extraData,
             'requestType' => $requestType,
-            'signature' => hash_hmac('sha256', $rawHash, $secretKey),
+            'signature'   => hash_hmac('sha256', $rawHash, $secretKey),
         ];
 
         $transaction->update([
             'gateway_order_id' => $orderId,
-            'request_payload' => $data,
+            'request_payload'  => $data,
         ]);
 
-        $response = Http::withOptions([
-            'verify' => filter_var(config('services.momo.verify_ssl', true), FILTER_VALIDATE_BOOLEAN),
-        ])->post($endpoint, $data);
+        try {
+            // Tắt verify SSL ('verify' => false) để Render kết nối được tới MoMo API Sandbox
+            $response = Http::withOptions([
+                'verify'  => false,
+                'timeout' => 15,
+            ])->post($endpoint, $data);
 
-        $result = $response->json() ?? [];
+            $result = $response->json() ?? [];
+        } catch (\Throwable $e) {
+            Log::error('MoMo HTTP Exception:', ['error' => $e->getMessage()]);
+            $result = ['message' => 'Lỗi kết nối MoMo HTTP: ' . $e->getMessage()];
+        }
 
         $transaction->update([
             'response_payload' => $result,
-            'result_code' => isset($result['resultCode']) ? (int) $result['resultCode'] : null,
-            'message' => $result['message'] ?? null,
-            'status' => isset($result['payUrl']) ? 'initiated' : 'failed',
+            'result_code'      => isset($result['resultCode']) ? (int) $result['resultCode'] : null,
+            'message'          => $result['message'] ?? null,
+            'status'           => isset($result['payUrl']) ? 'initiated' : 'failed',
         ]);
 
         return $result;
@@ -81,23 +89,23 @@ class MomoService
     public function markPaid(PaymentTransaction $transaction, array $payload): void
     {
         $transaction->update([
-            'transaction_id' => $payload['transId'] ?? null,
-            'result_code' => (int) ($payload['resultCode'] ?? 0),
-            'message' => $payload['message'] ?? null,
+            'transaction_id'   => $payload['transId'] ?? null,
+            'result_code'      => (int) ($payload['resultCode'] ?? 0),
+            'message'          => $payload['message'] ?? null,
             'response_payload' => $payload,
-            'status' => 'paid',
-            'paid_at' => Carbon::now(),
+            'status'           => 'paid',
+            'paid_at'          => Carbon::now(),
         ]);
     }
 
     public function markFailed(PaymentTransaction $transaction, array $payload): void
     {
         $transaction->update([
-            'transaction_id' => $payload['transId'] ?? null,
-            'result_code' => isset($payload['resultCode']) ? (int) $payload['resultCode'] : null,
-            'message' => $payload['message'] ?? null,
+            'transaction_id'   => $payload['transId'] ?? null,
+            'result_code'      => isset($payload['resultCode']) ? (int) $payload['resultCode'] : null,
+            'message'          => $payload['message'] ?? null,
             'response_payload' => $payload,
-            'status' => 'failed',
+            'status'           => 'failed',
         ]);
     }
 
@@ -112,8 +120,8 @@ class MomoService
             return false;
         }
 
-        $accessKey = config('services.momo.access_key', '');
-        $secretKey = config('services.momo.secret_key', '');
+        $accessKey = config('services.momo.access_key') ?: env('MOMO_ACCESS_KEY', '');
+        $secretKey = config('services.momo.secret_key') ?: env('MOMO_SECRET_KEY', '');
 
         $rawHash = 'accessKey=' . $accessKey .
             '&amount=' . ($payload['amount'] ?? '') .
