@@ -7,6 +7,7 @@ use App\Models\PaymentTransaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class MomoService
 {
@@ -87,7 +88,9 @@ class MomoService
             }
 
             if (!is_array($result)) {
-                $result = ['message' => 'MoMo trả về không phải JSON: ' . $response->body()];
+                // Cắt ngắn để không vượt độ dài cột `message` (255 ký tự)
+                $result = ['message' => 'MoMo HTTP ' . $response->status() . ' (không phải JSON): '
+                    . Str::limit(trim(strip_tags($response->body())), 120)];
             }
         } catch (\Throwable $e) {
             Log::error('MoMo HTTP Exception:', ['error' => $e->getMessage()]);
@@ -97,7 +100,7 @@ class MomoService
         $transaction->update([
             'response_payload' => $result,
             'result_code'      => isset($result['resultCode']) ? (int) $result['resultCode'] : null,
-            'message'          => $result['message'] ?? null,
+            'message'          => isset($result['message']) ? Str::limit((string) $result['message'], 250) : null,
             'status'           => isset($result['payUrl']) ? 'initiated' : 'failed',
         ]);
 
