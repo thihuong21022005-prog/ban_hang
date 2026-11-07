@@ -62,20 +62,34 @@ class MomoService
             $payloadJson = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             $ch = curl_init($endpoint);
-            curl_setopt_array($ch, [
+            
+            $headers = [
+                'Content-Type: application/json; charset=UTF-8',
+                'Content-Length: ' . strlen($payloadJson),
+                'Accept: application/json, text/plain, */*',
+                'Accept-Language: vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Origin: https://ban-hang-nnm3.onrender.com',
+                'Referer: https://ban-hang-nnm3.onrender.com/',
+            ];
+
+            $curlOptions = [
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => $payloadJson,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_SSL_VERIFYHOST => false,
                 CURLOPT_TIMEOUT        => 20,
-                CURLOPT_HTTPHEADER     => [
-                    'Content-Type: application/json; charset=UTF-8',
-                    'Content-Length: ' . strlen($payloadJson),
-                    'Accept: application/json',
-                    'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                ],
-            ]);
+                CURLOPT_HTTPHEADER     => $headers,
+            ];
+
+            // Nếu MoMo chặn IP Render, có thể thêm biến MOMO_PROXY trong Render Environment
+            $proxy = env('MOMO_PROXY');
+            if (!empty($proxy)) {
+                $curlOptions[CURLOPT_PROXY] = $proxy;
+            }
+
+            curl_setopt_array($ch, $curlOptions);
 
             $responseBody = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
