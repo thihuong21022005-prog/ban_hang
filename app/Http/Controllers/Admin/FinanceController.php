@@ -35,17 +35,20 @@ class FinanceController extends Controller
 
     private function ordersQuery()
     {
-        $paymentId = DB::table('payment_transactions')
-            ->select('id')
-            ->whereColumn('order_id', 'orders.id')
-            ->orderByRaw(self::PAYMENT_PRIORITY)
-            ->orderByDesc('id')
-            ->limit(1);
+        // Sử dụng Window Function ROW_NUMBER() để tạo subquery bảng giao dịch mới nhất
+        // Tương thích 100% với TiDB Cloud (tránh subquery trực tiếp trong mệnh đề ON)
+        $latestPayments = DB::table('payment_transactions')
+            ->select('id', 'order_id', 'gateway', 'status', 'paid_at', DB::raw("
+                ROW_NUMBER() OVER (
+                    PARTITION BY order_id 
+                    ORDER BY CASE WHEN status IN ('paid', 'refund_pending', 'refunded') THEN 2 ELSE 1 END, id DESC
+                ) as rn
+            "));
 
         $orders = DB::table('orders')
-            ->leftJoin('payment_transactions as payment', function ($join) use ($paymentId) {
+            ->leftJoinSub($latestPayments, 'payment', function ($join) {
                 $join->on('payment.order_id', '=', 'orders.id')
-                     ->where('payment.id', '=', $paymentId);
+                     ->where('payment.rn', '=', 1);
             })
             ->select('orders.*', 'payment.id as payment_id', 'payment.paid_at')
             ->selectRaw("LOWER(COALESCE(NULLIF(payment.gateway, ''), NULLIF(orders.payment_method, ''), CASE WHEN orders.status IN ('cod_ordered', 'cod_paid') THEN 'cod' WHEN orders.status IN ('paid', 'paid_momo') THEN 'momo' ELSE 'cod' END)) as gateway")
