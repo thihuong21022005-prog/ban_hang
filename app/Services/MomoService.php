@@ -7,7 +7,6 @@ use App\Models\PaymentTransaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class MomoService
 {
@@ -25,6 +24,7 @@ class MomoService
         $ipnUrl = config('services.momo.ipn_url') ?: route('payment.momo.ipn');
         $extraData = (string) $order->id;
         $requestId = (string) time();
+
         $requestType = config('services.momo.request_type') ?: env('MOMO_REQUEST_TYPE', 'captureWallet');
 
         $rawHash = 'accessKey=' . $accessKey .
@@ -60,37 +60,33 @@ class MomoService
         ]);
 
         try {
-            // Đọc MOMO_VERIFY_SSL từ env (mặc định true). Chỉ đặt false nếu bị lỗi chứng chỉ SSL.
-            // Thêm header giống trình duyệt để tránh bị MoMo (nginx) chặn 403
+            $verifySsl = config('services.momo.verify_ssl', filter_var(env('MOMO_VERIFY_SSL', false), FILTER_VALIDATE_BOOLEAN));
+
+            // Thêm User-Agent và Content-Type JSON để tránh bị Nginx WAF trên MoMo từ chối (403 Forbidden)
             $response = Http::withHeaders([
-                    'User-Agent'   => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept'       => 'application/json',
-                    'Content-Type' => 'application/json; charset=UTF-8',
-                ])
-                ->withOptions([
-                    'verify'  => filter_var(env('MOMO_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
-                    'timeout' => 15,
-                ])
-                ->post($endpoint, $data);
+                'Content-Type' => 'application/json; charset=UTF-8',
+                'User-Agent'   => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            ])->withOptions([
+                'verify'  => $verifySsl,
+                'timeout' => 15,
+            ])->asJson()->post($endpoint, $data);
 
             $result = $response->json();
 
-            // Log nội dung thô MoMo trả về để biết lỗi thật (không chứa key bí mật)
             if (!is_array($result) || !isset($result['payUrl'])) {
                 Log::error('MoMo raw response', [
                     'status'       => $response->status(),
                     'body'         => $response->body(),
                     'endpoint'     => $endpoint,
                     'partner_code' => $partnerCode,
+                    'request_type' => $requestType,
                     'redirect_url' => $redirectUrl,
                     'ipn_url'      => $ipnUrl,
                 ]);
             }
 
             if (!is_array($result)) {
-                // Cắt ngắn để không vượt độ dài cột `message` (255 ký tự)
-                $result = ['message' => 'MoMo HTTP ' . $response->status() . ' (không phải JSON): '
-                    . Str::limit(trim(strip_tags($response->body())), 120)];
+                $result = ['message' => 'MoMo HTTP ' . $response->status() . ' (không phải JSON): ' . strip_tags($response->body())];
             }
         } catch (\Throwable $e) {
             Log::error('MoMo HTTP Exception:', ['error' => $e->getMessage()]);
@@ -100,7 +96,7 @@ class MomoService
         $transaction->update([
             'response_payload' => $result,
             'result_code'      => isset($result['resultCode']) ? (int) $result['resultCode'] : null,
-            'message'          => isset($result['message']) ? Str::limit((string) $result['message'], 250) : null,
+            'message'          => $result['message'] ?? null,
             'status'           => isset($result['payUrl']) ? 'initiated' : 'failed',
         ]);
 
