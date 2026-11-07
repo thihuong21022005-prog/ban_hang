@@ -80,10 +80,10 @@ class MomoService
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_SSL_VERIFYHOST => false,
                 CURLOPT_TIMEOUT        => 20,
+                CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1, // Ép dùng HTTP 1.1 tránh Nginx WAF từ chối
                 CURLOPT_HTTPHEADER     => $headers,
             ];
 
-            // Nếu MoMo chặn IP Render, có thể thêm biến MOMO_PROXY trong Render Environment
             $proxy = env('MOMO_PROXY');
             if (!empty($proxy)) {
                 $curlOptions[CURLOPT_PROXY] = $proxy;
@@ -155,10 +155,10 @@ class MomoService
         ]);
     }
 
-    public function isValidSuccessfulResponse(array $payload): bool
-    {
-        return $this->isValidResponse($payload) && $this->isSuccessful($payload);
-    }
+   public function isValidSuccessfulResponse(array $payload): bool
+{
+    return $this->isValidResponse($payload) && $this->isSuccessful($payload);
+}
 
     public function isValidResponse(array $payload): bool
     {
