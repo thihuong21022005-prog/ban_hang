@@ -59,13 +59,29 @@ class MomoService
         ]);
 
         try {
-            // Tắt verify SSL ('verify' => false) để Render kết nối được tới MoMo API Sandbox
+            // Đọc MOMO_VERIFY_SSL từ env (mặc định true). Chỉ đặt false nếu bị lỗi chứng chỉ SSL.
             $response = Http::withOptions([
-                'verify'  => false,
+                'verify'  => filter_var(env('MOMO_VERIFY_SSL', true), FILTER_VALIDATE_BOOLEAN),
                 'timeout' => 15,
             ])->post($endpoint, $data);
 
-            $result = $response->json() ?? [];
+            $result = $response->json();
+
+            // Log nội dung thô MoMo trả về để biết lỗi thật (không chứa key bí mật)
+            if (!is_array($result) || !isset($result['payUrl'])) {
+                Log::error('MoMo raw response', [
+                    'status'       => $response->status(),
+                    'body'         => $response->body(),
+                    'endpoint'     => $endpoint,
+                    'partner_code' => $partnerCode,
+                    'redirect_url' => $redirectUrl,
+                    'ipn_url'      => $ipnUrl,
+                ]);
+            }
+
+            if (!is_array($result)) {
+                $result = ['message' => 'MoMo trả về không phải JSON: ' . $response->body()];
+            }
         } catch (\Throwable $e) {
             Log::error('MoMo HTTP Exception:', ['error' => $e->getMessage()]);
             $result = ['message' => 'Lỗi kết nối MoMo HTTP: ' . $e->getMessage()];
